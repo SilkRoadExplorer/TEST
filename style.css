@@ -799,8 +799,8 @@ button {
   color: var(--muted-ink);
 }
 
-.review-correct {
-  font-weight: 600;
+.review-hint {
+  margin-top: 0.3rem;
   font-style: italic;
-  color: var(--green) !important;
+  color: var(--brown) !important;
 }

@@ -19,6 +19,7 @@
 const questions = [
   {
     prompt: "What makes the Midgewater Marshes dangerous at night?",
+    hint: "What seems solid in daylight may not hold beneath a careless foot.",
     answers: [
       { label: "Unstable Ground", correct: true },
       { label: "Marsh Wraiths", correct: false },
@@ -28,6 +29,7 @@ const questions = [
   },
   {
     prompt: "Why does the Fellowship travel away from the main road?",
+    hint: "The open road is watched by eyes that do not rest.",
     answers: [
       { label: "To avoid being seen by the Riders", correct: true },
       { label: "The road is flooded", correct: false },
@@ -37,6 +39,7 @@ const questions = [
   },
   {
     prompt: "What should the Fellowship do before resting for the night?",
+    hint: "A wise traveller knows the ground before laying down their head.",
     answers: [
       { label: "Check the ground and surroundings", correct: true },
       { label: "Light a large fire", correct: false },
@@ -46,6 +49,7 @@ const questions = [
   },
   {
     prompt: "Why is Weathertop a useful landmark for the Fellowship?",
+    hint: "From a height, much is revealed to those who watch.",
     answers: [
       { label: "It offers a wide view of the land", correct: true },
       { label: "It has a hidden market", correct: false },
@@ -55,6 +59,7 @@ const questions = [
   },
   {
     prompt: "What is the greatest risk of an open hilltop like Weathertop?",
+    hint: "To see far is also to be seen from afar.",
     answers: [
       { label: "Being visible from far away", correct: true },
       { label: "Falling rocks", correct: false },
@@ -284,13 +289,14 @@ function showReview(correctCount) {
   questionProgress.textContent = `Score: ${correctCount} of ${totalQuestions} correct`;
   progressCount.textContent = `${correctCount} / ${totalQuestions}`;
 
-  // Build the full review: each question, the chosen answer, the correct one.
+  // Build the full review: each question and the chosen answer.
+  // For wrong answers, show a cryptic hint instead of the solution,
+  // so the Fellowship must still reason it out on the retry.
   reviewList.innerHTML = "";
 
   questions.forEach((question, i) => {
     const chosen = selections[i];
     const chosenAnswer = chosen !== null ? question.answers[chosen] : null;
-    const correctAnswer = question.answers.find((a) => a.correct);
     const wasCorrect = chosenAnswer && chosenAnswer.correct;
 
     const item = document.createElement("div");
@@ -308,12 +314,12 @@ function showReview(correctCount) {
 
     item.append(q, yours);
 
-    // Only show the correct answer when the chosen one was wrong.
+    // Only show a hint when the chosen answer was wrong.
     if (!wasCorrect) {
-      const right = document.createElement("p");
-      right.className = "review-line review-correct";
-      right.textContent = `Correct answer: ${correctAnswer.label}`;
-      item.append(right);
+      const hint = document.createElement("p");
+      hint.className = "review-line review-hint";
+      hint.textContent = `Hint: ${question.hint}`;
+      item.append(hint);
     }
 
     reviewList.append(item);
