@@ -1,150 +1,65 @@
 /* ============================================================
    The Shire Guide - Knowledge Challenge
-   Logic for a 5-question gate before a new journey section.
+   A 5-question gate before a new journey section.
 
-   Rules (from our system flow):
-   - The Fellowship answers a set of questions before a section.
-   - Up to 3 wrong answers IN TOTAL are allowed across the quiz.
-   - A correct answer advances automatically to the next question.
-   - After 3 total wrong answers, the Fellowship is marked unprepared.
-   - Passing all questions unlocks the next section.
+   Flow (matches our system flowchart):
+   - The Fellowship answers all 5 questions, one at a time.
+   - No feedback is shown during the round.
+   - After question 5, the whole round is graded at once:
+       full review with each chosen answer and the correct one.
+   - All 5 correct  -> section unlocked.
+   - Not all correct -> the round can be retried.
+   - A "try" is one COMPLETE run of the quiz; up to 3 tries.
+   - Previous answers stay selected on a retry, so the Fellowship
+     only has to correct what was wrong.
+   - After 3 unsuccessful tries -> marked unprepared (warning).
    ============================================================ */
 
-/* ---- Question data -------------------------------------------------------
-   Each question carries its own hint and per-answer feedback, so the data
-   array is the single source of truth. The HTML is only the shell. */
+/* ---- Question data -------------------------------------------------------- */
 const questions = [
   {
     prompt: "What makes the Midgewater Marshes dangerous at night?",
-    hint: "Think about what becomes harder to judge when the Fellowship travels through marshland in darkness.",
     answers: [
-      {
-        label: "Unstable Ground",
-        correct: true,
-        feedback:
-          "Correct. The unstable ground makes the Midgewater Marshes dangerous at night.",
-      },
-      {
-        label: "Marsh Wraiths",
-        correct: false,
-        feedback:
-          "Not quite. Marsh Wraiths sound threatening, but they are not the correct danger here.",
-      },
-      {
-        label: "Poisonous Water",
-        correct: false,
-        feedback:
-          "Not quite. Poisonous water is not the main danger described in this question.",
-      },
-      {
-        label: "No Safe Paths",
-        correct: false,
-        feedback: "Close, but not precise enough. The main danger is the unstable ground.",
-      },
+      { label: "Unstable Ground", correct: true },
+      { label: "Marsh Wraiths", correct: false },
+      { label: "Poisonous Water", correct: false },
+      { label: "No Safe Paths", correct: false },
     ],
   },
   {
     prompt: "Why does the Fellowship travel away from the main road?",
-    hint: "Consider who might be watching the open roads.",
     answers: [
-      {
-        label: "To avoid being seen by the Riders",
-        correct: true,
-        feedback: "Correct. Staying off the road keeps the Fellowship hidden from the Riders.",
-      },
-      {
-        label: "The road is flooded",
-        correct: false,
-        feedback: "Not quite. Flooding is not the reason the road is avoided here.",
-      },
-      {
-        label: "It is a shorter route",
-        correct: false,
-        feedback: "Not quite. The off-road path is harder, not shorter.",
-      },
-      {
-        label: "To find better food",
-        correct: false,
-        feedback: "Not quite. Foraging is not why the road itself is avoided.",
-      },
+      { label: "To avoid being seen by the Riders", correct: true },
+      { label: "The road is flooded", correct: false },
+      { label: "It is a shorter route", correct: false },
+      { label: "To find better food", correct: false },
     ],
   },
   {
     prompt: "What should the Fellowship do before resting for the night?",
-    hint: "A good camp is chosen, not stumbled into.",
     answers: [
-      {
-        label: "Check the ground and surroundings",
-        correct: true,
-        feedback: "Correct. Assessing the ground and surroundings keeps the camp safe.",
-      },
-      {
-        label: "Light a large fire",
-        correct: false,
-        feedback: "Not quite. A large fire would draw attention to the camp.",
-      },
-      {
-        label: "Keep marching through the night",
-        correct: false,
-        feedback: "Not quite. The question is about resting, not avoiding rest.",
-      },
-      {
-        label: "Split the group up",
-        correct: false,
-        feedback: "Not quite. Splitting up would make the Fellowship more vulnerable.",
-      },
+      { label: "Check the ground and surroundings", correct: true },
+      { label: "Light a large fire", correct: false },
+      { label: "Keep marching through the night", correct: false },
+      { label: "Split the group up", correct: false },
     ],
   },
   {
     prompt: "Why is Weathertop a useful landmark for the Fellowship?",
-    hint: "Think about what a high, open hill lets you do.",
     answers: [
-      {
-        label: "It offers a wide view of the land",
-        correct: true,
-        feedback: "Correct. The high vantage point lets the Fellowship watch the land around them.",
-      },
-      {
-        label: "It has a hidden market",
-        correct: false,
-        feedback: "Not quite. Weathertop is a ruin, not a place of trade.",
-      },
-      {
-        label: "It is always safe",
-        correct: false,
-        feedback: "Not quite. An exposed hilltop carries its own risks.",
-      },
-      {
-        label: "It has fresh supplies",
-        correct: false,
-        feedback: "Not quite. Weathertop is not a source of supplies.",
-      },
+      { label: "It offers a wide view of the land", correct: true },
+      { label: "It has a hidden market", correct: false },
+      { label: "It is always safe", correct: false },
+      { label: "It has fresh supplies", correct: false },
     ],
   },
   {
     prompt: "What is the greatest risk of an open hilltop like Weathertop?",
-    hint: "What can see you, when you can see far?",
     answers: [
-      {
-        label: "Being visible from far away",
-        correct: true,
-        feedback: "Correct. A high, open place makes the Fellowship easy to spot from a distance.",
-      },
-      {
-        label: "Falling rocks",
-        correct: false,
-        feedback: "Not quite. Loose rock is a minor concern compared to being seen.",
-      },
-      {
-        label: "Too much shade",
-        correct: false,
-        feedback: "Not quite. Shade is not the main risk on an exposed hilltop.",
-      },
-      {
-        label: "Crowded paths",
-        correct: false,
-        feedback: "Not quite. The wilds around Weathertop are empty, not crowded.",
-      },
+      { label: "Being visible from far away", correct: true },
+      { label: "Falling rocks", correct: false },
+      { label: "Too much shade", correct: false },
+      { label: "Crowded paths", correct: false },
     ],
   },
 ];
@@ -152,6 +67,7 @@ const questions = [
 /* ---- Element references --------------------------------------------------- */
 const quiz = document.querySelector("[data-quiz]");
 const quizForm = document.querySelector("#quiz-form");
+const questionCard = document.querySelector("#question-card");
 const answerList = document.querySelector("#answer-list");
 const questionTitle = document.querySelector("#quiz-title");
 const questionProgress = document.querySelector("#question-progress");
@@ -159,38 +75,47 @@ const progressCount = document.querySelector("#progress-count");
 const progressDots = document.querySelector("#progress-dots");
 const feedback = document.querySelector("#quiz-feedback");
 const attemptStatus = document.querySelector("#attempt-status");
-const hintCard = document.querySelector("#hint-card");
-const hintText = document.querySelector("#hint-text");
 const warningCard = document.querySelector("#warning-card");
+const reviewPanel = document.querySelector("#review-panel");
+const reviewList = document.querySelector("#review-list");
 const resultAnimation = document.querySelector("#result-animation");
 const resultTitle = document.querySelector("#result-title");
 const resultText = document.querySelector("#result-text");
 const submitButton = document.querySelector("#submit-answer");
+const backButton = document.querySelector("#nav-back");
 
 /* ---- State ---------------------------------------------------------------- */
-const maxAttempts = Number(quiz.dataset.maxAttempts);
+const maxAttempts = Number(quiz.dataset.maxAttempts); // 3 full tries
 const totalQuestions = questions.length;
 
 let currentIndex = 0;
 let usedAttempts = 0;
 let quizIsFinished = false;
-let advanceTimer = null;
+// selections[i] = chosen answer index for question i, or null.
+// Kept across tries so previous answers stay visible.
+let selections = new Array(totalQuestions).fill(null);
+let awaitingRetry = false; // true when the review is shown and the button means "Try Again"
 
 /* ---- Setup ---------------------------------------------------------------- */
 buildProgressDots();
-renderQuestion();
 updateAttemptStatus();
+renderQuestion();
 
-quizForm.addEventListener("submit", handleSubmitAnswer);
+quizForm.addEventListener("submit", handleFormSubmit);
 
-/* ---- Rendering ------------------------------------------------------------ */
+if (backButton) {
+  backButton.addEventListener("click", goToPreviousQuestion);
+}
+
+/* ---- Rendering: question view -------------------------------------------- */
 function renderQuestion() {
+  reviewPanel.classList.remove("is-visible");
+  questionCard.classList.remove("is-hidden");
+  answerList.classList.remove("is-hidden");
+
   const question = questions[currentIndex];
-
   questionTitle.textContent = question.prompt;
-  hintCard.dataset.hint = question.hint;
 
-  // Build the answer options for this question.
   answerList.innerHTML = "";
 
   question.answers.forEach((answer, answerIndex) => {
@@ -205,9 +130,11 @@ function renderQuestion() {
     input.name = "quiz-answer";
     input.value = String(answerIndex);
     input.dataset.answer = "";
-    input.dataset.correct = String(answer.correct);
-    input.dataset.feedback = answer.feedback;
-    input.addEventListener("change", clearAnswerStates);
+
+    // Restore previous selection so it stays visible on retry.
+    if (selections[currentIndex] === answerIndex) {
+      input.checked = true;
+    }
 
     const label = document.createElement("label");
     label.setAttribute("for", optionId);
@@ -224,19 +151,31 @@ function renderQuestion() {
     answerList.append(wrapper);
   });
 
-  // Reset the per-question UI.
   updateProgressDisplay();
-  resetFeedbackForNewQuestion();
+  updateNavButtons();
+  updateSubmitLabel();
+
+  // Neutral prompt during the round - no right/wrong yet.
+  feedback.textContent = "Answer all five questions. You will see the results at the end.";
+  feedback.classList.remove("is-success", "is-error");
 }
 
+function updateSubmitLabel() {
+  const isLast = currentIndex === totalQuestions - 1;
+  submitButton.textContent = isLast ? "Finish & See Results" : "Next Question";
+}
+
+function updateNavButtons() {
+  if (!backButton) return;
+  backButton.disabled = currentIndex === 0;
+}
+
+/* ---- Progress ------------------------------------------------------------- */
 function buildProgressDots() {
   progressDots.innerHTML = "";
-
   for (let i = 0; i < totalQuestions; i += 1) {
-    const dot = document.createElement("span");
-    progressDots.append(dot);
+    progressDots.append(document.createElement("span"));
   }
-
   updateProgressDots();
 }
 
@@ -249,128 +188,191 @@ function updateProgressDisplay() {
 
 function updateProgressDots() {
   const dots = progressDots.querySelectorAll("span");
-
   dots.forEach((dot, index) => {
     dot.classList.remove("is-complete", "is-current");
-
-    if (index < currentIndex) {
-      dot.classList.add("is-complete");
-    } else if (index === currentIndex) {
-      dot.classList.add("is-current");
-    }
+    if (index < currentIndex) dot.classList.add("is-complete");
+    else if (index === currentIndex) dot.classList.add("is-current");
   });
 }
 
-function resetFeedbackForNewQuestion() {
-  feedback.textContent = "Choose an answer to help the Fellowship prepare.";
-  feedback.classList.remove("is-success", "is-error");
-
-  hintCard.classList.remove("is-visible");
-  hintText.textContent = "A hint will appear after a wrong answer.";
-
-  resultAnimation.classList.remove("is-visible", "is-correct", "is-wrong");
-}
-
-/* ---- Answer handling ------------------------------------------------------ */
-function handleSubmitAnswer(event) {
+/* ---- Navigation ----------------------------------------------------------- */
+function handleFormSubmit(event) {
   event.preventDefault();
+  if (quizIsFinished) return;
 
-  if (quizIsFinished) {
+  // When the review is on screen, the button is a retry control.
+  if (awaitingRetry) {
+    startRetry();
     return;
   }
 
-  const selectedAnswer = document.querySelector("[data-answer]:checked");
-
-  if (!selectedAnswer) {
-    showFeedback("Please choose an answer before submitting.", "error");
+  const selected = document.querySelector("[data-answer]:checked");
+  if (!selected) {
+    feedback.textContent = "Please choose an answer before continuing.";
+    feedback.classList.remove("is-success");
+    feedback.classList.add("is-error");
     return;
   }
 
-  const isCorrect = selectedAnswer.dataset.correct === "true";
+  // Store the selection for this question.
+  selections[currentIndex] = Number(selected.value);
 
-  if (isCorrect) {
-    handleCorrectAnswer(selectedAnswer);
+  const isLast = currentIndex === totalQuestions - 1;
+  if (isLast) {
+    gradeRound();
   } else {
-    handleWrongAnswer(selectedAnswer);
+    currentIndex += 1;
+    renderQuestion();
   }
 }
 
-function handleCorrectAnswer(selectedAnswer) {
-  const answerWrapper = selectedAnswer.closest(".answer-option");
-  answerWrapper.classList.add("is-correct");
+function goToPreviousQuestion() {
+  if (currentIndex === 0 || quizIsFinished) return;
 
-  showFeedback(selectedAnswer.dataset.feedback, "success");
-  showResultAnimation("correct");
+  // Remember the current choice before stepping back, if any.
+  const selected = document.querySelector("[data-answer]:checked");
+  if (selected) {
+    selections[currentIndex] = Number(selected.value);
+  }
 
-  // Lock the current question briefly, then advance.
-  lockAnswers();
-
-  const isLastQuestion = currentIndex === totalQuestions - 1;
-
-  advanceTimer = window.setTimeout(() => {
-    if (isLastQuestion) {
-      finishQuizSuccessfully();
-    } else {
-      currentIndex += 1;
-      renderQuestion();
-      unlockAnswers();
-    }
-  }, 1200);
+  currentIndex -= 1;
+  renderQuestion();
 }
 
-function handleWrongAnswer(selectedAnswer) {
+/* ---- Grading + review ----------------------------------------------------- */
+function gradeRound() {
   usedAttempts += 1;
   updateAttemptStatus();
 
-  const answerWrapper = selectedAnswer.closest(".answer-option");
-  answerWrapper.classList.add("is-wrong");
+  const correctCount = countCorrect();
+  const allCorrect = correctCount === totalQuestions;
 
-  showFeedback(selectedAnswer.dataset.feedback, "error");
-  showHint();
-  showResultAnimation("wrong");
+  showReview(correctCount);
 
-  if (usedAttempts >= maxAttempts) {
-    failQuiz();
+  if (allCorrect) {
+    finishQuizSuccessfully();
+  } else if (usedAttempts >= maxAttempts) {
+    failQuiz(correctCount);
+  } else {
+    offerRetry(correctCount);
   }
+}
+
+function countCorrect() {
+  let count = 0;
+  questions.forEach((question, i) => {
+    const chosen = selections[i];
+    if (chosen !== null && question.answers[chosen].correct) {
+      count += 1;
+    }
+  });
+  return count;
+}
+
+function showReview(correctCount) {
+  // Hide the question, show the review panel.
+  questionCard.classList.add("is-hidden");
+  answerList.classList.add("is-hidden");
+  reviewPanel.classList.add("is-visible");
+
+  // Mark all dots complete.
+  const dots = progressDots.querySelectorAll("span");
+  dots.forEach((dot) => {
+    dot.classList.remove("is-current");
+    dot.classList.add("is-complete");
+  });
+  questionProgress.textContent = `Score: ${correctCount} of ${totalQuestions} correct`;
+  progressCount.textContent = `${correctCount} / ${totalQuestions}`;
+
+  // Build the full review: each question, the chosen answer, the correct one.
+  reviewList.innerHTML = "";
+
+  questions.forEach((question, i) => {
+    const chosen = selections[i];
+    const chosenAnswer = chosen !== null ? question.answers[chosen] : null;
+    const correctAnswer = question.answers.find((a) => a.correct);
+    const wasCorrect = chosenAnswer && chosenAnswer.correct;
+
+    const item = document.createElement("div");
+    item.className = `review-item ${wasCorrect ? "is-correct" : "is-wrong"}`;
+
+    const q = document.createElement("p");
+    q.className = "review-question";
+    q.textContent = `${i + 1}. ${question.prompt}`;
+
+    const yours = document.createElement("p");
+    yours.className = "review-line";
+    yours.textContent = chosenAnswer
+      ? `Your answer: ${chosenAnswer.label}`
+      : "Your answer: (none)";
+
+    item.append(q, yours);
+
+    // Only show the correct answer when the chosen one was wrong.
+    if (!wasCorrect) {
+      const right = document.createElement("p");
+      right.className = "review-line review-correct";
+      right.textContent = `Correct answer: ${correctAnswer.label}`;
+      item.append(right);
+    }
+
+    reviewList.append(item);
+  });
 }
 
 /* ---- End states ----------------------------------------------------------- */
 function finishQuizSuccessfully() {
   quizIsFinished = true;
-
-  // Mark all dots complete.
-  currentIndex = totalQuestions;
-  updateProgressDots();
-  questionProgress.textContent = `Completed ${totalQuestions} of ${totalQuestions}`;
-  progressCount.textContent = `${totalQuestions} / ${totalQuestions}`;
-
   showFeedback(quiz.dataset.successMessage, "success");
   showResultAnimation("correct");
-  lockQuiz();
+  submitButton.classList.add("is-hidden");
+  if (backButton) backButton.disabled = true;
+  quiz.classList.add("is-locked");
 }
 
-function failQuiz() {
+function offerRetry(correctCount) {
+  const triesLeft = maxAttempts - usedAttempts;
+  showFeedback(
+    `${correctCount} of ${totalQuestions} correct. Not all answers are right yet. ` +
+      `Tries left: ${triesLeft}.`,
+    "error"
+  );
+  showResultAnimation("wrong");
+
+  // Turn the submit button into a retry control (handled by the flag).
+  submitButton.textContent = "Try Again";
+  submitButton.classList.remove("is-hidden");
+  awaitingRetry = true;
+}
+
+function startRetry() {
+  // Start a fresh run, keeping previous selections visible.
+  awaitingRetry = false;
+  currentIndex = 0;
+  reviewPanel.classList.remove("is-visible");
+  resultAnimation.classList.remove("is-visible", "is-correct", "is-wrong");
+  renderQuestion();
+}
+
+function failQuiz(correctCount) {
   quizIsFinished = true;
   warningCard.classList.add("is-active");
-  showFeedback(quiz.dataset.failMessage, "error");
-  lockQuiz();
+  showFeedback(
+    `${quiz.dataset.failMessage} (Final score: ${correctCount} of ${totalQuestions}.)`,
+    "error"
+  );
+  showResultAnimation("wrong");
+  submitButton.classList.add("is-hidden");
+  if (backButton) backButton.disabled = true;
+  quiz.classList.add("is-locked");
 }
 
-/* ---- Feedback + status helpers ------------------------------------------- */
+/* ---- Shared helpers ------------------------------------------------------- */
 function showFeedback(message, type) {
   feedback.textContent = message;
   feedback.classList.remove("is-success", "is-error");
-
-  if (type === "success") {
-    feedback.classList.add("is-success");
-  } else if (type === "error") {
-    feedback.classList.add("is-error");
-  }
-}
-
-function showHint() {
-  hintCard.classList.add("is-visible");
-  hintText.textContent = hintCard.dataset.hint;
+  if (type === "success") feedback.classList.add("is-success");
+  else if (type === "error") feedback.classList.add("is-error");
 }
 
 function updateAttemptStatus() {
@@ -380,7 +382,6 @@ function updateAttemptStatus() {
 function showResultAnimation(type) {
   resultAnimation.classList.remove("is-correct", "is-wrong");
   resultAnimation.classList.add("is-visible");
-
   if (type === "correct") {
     resultAnimation.classList.add("is-correct");
     resultTitle.textContent = resultAnimation.dataset.correctTitle;
@@ -390,33 +391,4 @@ function showResultAnimation(type) {
     resultTitle.textContent = resultAnimation.dataset.wrongTitle;
     resultText.textContent = resultAnimation.dataset.wrongText;
   }
-}
-
-function clearAnswerStates() {
-  const answerWrappers = document.querySelectorAll(".answer-option");
-  answerWrappers.forEach((wrapper) => {
-    wrapper.classList.remove("is-correct", "is-wrong");
-  });
-}
-
-/* ---- Locking -------------------------------------------------------------- */
-function lockAnswers() {
-  const answerInputs = document.querySelectorAll("[data-answer]");
-  answerInputs.forEach((input) => {
-    input.disabled = true;
-  });
-  submitButton.disabled = true;
-}
-
-function unlockAnswers() {
-  const answerInputs = document.querySelectorAll("[data-answer]");
-  answerInputs.forEach((input) => {
-    input.disabled = false;
-  });
-  submitButton.disabled = false;
-}
-
-function lockQuiz() {
-  quiz.classList.add("is-locked");
-  lockAnswers();
 }

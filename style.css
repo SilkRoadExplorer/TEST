@@ -735,3 +735,72 @@ button {
     font-size: 1.55rem;
   }
 }
+
+/* ============================================================
+   Knowledge Challenge - results review
+   Added for the "answer all 5, then grade" flow.
+   ============================================================ */
+
+.is-hidden {
+  display: none !important;
+}
+
+.review-panel {
+  display: none;
+  gap: 0.7rem;
+  padding: 0.2rem 0;
+}
+
+.review-panel.is-visible {
+  display: grid;
+}
+
+.review-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.review-item {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(117, 83, 39, 0.42);
+  border-left-width: 4px;
+  border-radius: 0.22rem;
+  background: rgba(255, 248, 229, 0.6);
+}
+
+.review-item.is-correct {
+  border-left-color: var(--success);
+  background: rgba(217, 225, 204, 0.55);
+}
+
+.review-item.is-wrong {
+  border-left-color: var(--rust);
+  background: rgba(255, 236, 216, 0.6);
+}
+
+.review-question {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.review-line {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.review-item.is-correct .review-line {
+  color: var(--success);
+}
+
+.review-item.is-wrong .review-line {
+  color: var(--muted-ink);
+}
+
+.review-correct {
+  font-weight: 600;
+  font-style: italic;
+  color: var(--green) !important;
+}
