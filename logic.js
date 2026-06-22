@@ -94,7 +94,8 @@ const questions = readQuestionsFromDom();
 // so a content mistake can never produce "NaN" or an un-failable quiz.
 const DEFAULT_MAX_ATTEMPTS = 3;
 const parsedMaxAttempts = Number(quiz.dataset.maxAttempts);
-const maxAttempts =
+// `let`, because the sunset API may lower it once it resolves (see below).
+let maxAttempts =
   Number.isInteger(parsedMaxAttempts) && parsedMaxAttempts > 0
     ? parsedMaxAttempts
     : DEFAULT_MAX_ATTEMPTS;
@@ -137,6 +138,10 @@ if (totalQuestions === 0) {
   if (backButton) {
     backButton.addEventListener("click", goToPreviousQuestion);
   }
+
+  // Fetch the sunset time for the filming location. The quiz already works
+  // with the default attempts; this only refines it once the data arrives.
+  applySunsetConditions();
 }
 
 /* ---- Rendering: question view -------------------------------------------- */
@@ -494,6 +499,18 @@ function showFeedback(message, type) {
 
 function updateAttemptStatus() {
   attemptStatus.textContent = `${usedAttempts} of ${maxAttempts} used`;
+  updateWarningText();
+}
+
+/* Keep the warning text in sync with the current number of attempts,
+   which the sunset extension may lower from the default. */
+function updateWarningText() {
+  const warningText = document.querySelector("#warning-text");
+  if (!warningText) return;
+  const times = maxAttempts === 1 ? "once" : `up to ${maxAttempts} times`;
+  warningText.textContent =
+    `The whole quiz may be retried ${times}. After the last unsuccessful ` +
+    `try, the Fellowship is marked as unprepared.`;
 }
 
 function showResultAnimation(type) {
@@ -506,4 +523,82 @@ function showResultAnimation(type) {
   resultAnimation.classList.add(type === "correct" ? "is-correct" : "is-wrong");
   resultTitle.textContent = resultAnimation.dataset[titleKey];
   resultText.textContent = resultAnimation.dataset[textKey];
+}
+
+/* ============================================================
+   Sunset extension (Open-Meteo)
+   ------------------------------------------------------------
+   Fetches today's sunset for the Lord of the Rings filming
+   location (Hobbiton, New Zealand) and shows it at the top.
+   If darkness is near, the Fellowship gets one fewer attempt:
+   the gate becomes harder when night is closing in.
+
+   This affects behaviour (the number of tries), not just looks,
+   and it builds on the existing quiz rather than adding a new
+   feature. It needs no API key and no backend - a single fetch.
+   If the request fails, the quiz simply keeps the default tries.
+   ============================================================ */
+function applySunsetConditions() {
+  const lat = quiz.dataset.sunsetLat;
+  const lon = quiz.dataset.sunsetLon;
+  const place = quiz.dataset.sunsetPlace || "the filming location";
+  const reduced = Number(quiz.dataset.reducedAttempts);
+
+  // Without coordinates we can't ask; leave the default tries in place.
+  if (!lat || !lon) return;
+
+  const url =
+    "https://api.open-meteo.com/v1/forecast" +
+    `?latitude=${lat}&longitude=${lon}` +
+    "&daily=sunset&timezone=auto&forecast_days=1";
+
+  fetch(url)
+    .then((response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then((data) => {
+      const sunsetIso = data && data.daily && data.daily.sunset && data.daily.sunset[0];
+      if (!sunsetIso) throw new Error("No sunset in response");
+      showSunset(sunsetIso, place, reduced);
+    })
+    .catch((error) => {
+      // Network or data problem: the quiz still works with default tries.
+      console.warn("Sunset lookup failed; keeping default attempts.", error);
+    });
+}
+
+/* Show the sunset time and, if darkness is near, lower the attempts. */
+function showSunset(sunsetIso, place, reducedAttempts) {
+  const sunsetLine = document.querySelector("#sunset-line");
+  const sunset = new Date(sunsetIso);
+
+  // Format the time using the visitor's locale (e.g. "5:14 PM" / "17:14").
+  const time = sunset.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // "Darkness is near" if sunset is within the next 2 hours (or already past).
+  const now = new Date();
+  const hoursUntilSunset = (sunset - now) / (1000 * 60 * 60);
+  const darknessNear = hoursUntilSunset <= 2;
+
+  // Only lower attempts if a valid reduced value is configured, the round
+  // hasn't started, and we wouldn't go below 1.
+  const canReduce =
+    Number.isInteger(reducedAttempts) &&
+    reducedAttempts > 0 &&
+    reducedAttempts < maxAttempts;
+
+  if (darknessNear && canReduce && usedAttempts === 0 && !quizIsFinished) {
+    maxAttempts = reducedAttempts;
+    updateAttemptStatus();
+  }
+
+  if (sunsetLine) {
+    sunsetLine.textContent = darknessNear
+      ? `Sunset over ${place}: ${time} — darkness is near`
+      : `Sunset over ${place}: ${time}`;
+  }
 }

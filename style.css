@@ -855,3 +855,17 @@ button {
 .answer-feedback.is-wrong .answer-feedback-text {
   color: var(--danger);
 }
+
+/* ============================================================
+   Sunset line (top, centered, understated)
+   Sunset time for the LotR filming location; set by logic.js.
+   ============================================================ */
+
+.sunset-line {
+  margin: 0 0 0.4rem;
+  color: var(--muted-ink);
+  font-size: 0.82rem;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  text-align: center;
+}

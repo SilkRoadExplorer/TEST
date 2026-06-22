@@ -31,6 +31,8 @@
 
       <main class="screen">
         <section class="challenge-context" aria-labelledby="page-title">
+          <p class="sunset-line" id="sunset-line" aria-live="polite">&nbsp;</p>
+
           <p class="ornament" aria-hidden="true">&#10022;</p>
           <p class="area-label">Knowledge Challenge</p>
 
@@ -114,6 +116,10 @@
           class="quiz-layout"
           data-quiz
           data-max-attempts="3"
+          data-reduced-attempts="2"
+          data-sunset-lat="-37.87"
+          data-sunset-lon="175.77"
+          data-sunset-place="Hobbiton"
           data-success-message="All answers correct. The Fellowship is ready to continue toward the next section."
           data-fail-message="The Fellowship is not prepared yet. Review the warning before moving on."
           data-during-message="Answer all five questions. You will see the results at the end."
@@ -213,9 +219,9 @@
 
             <div class="warning-card" id="warning-card">
               <p class="status-label">Warning</p>
-              <p>
-                The whole quiz may be retried up to 3 times. After 3 unsuccessful
-                tries, the Fellowship is marked as unprepared.
+              <p id="warning-text">
+                The whole quiz may be retried a limited number of times. After
+                the last unsuccessful try, the Fellowship is marked as unprepared.
               </p>
             </div>
           </aside>
