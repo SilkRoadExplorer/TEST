@@ -560,7 +560,6 @@ button {
 }
  
 .status-card,
-.hint-card,
 .warning-card {
   padding: 0.75rem;
   border: 1px solid rgba(117, 83, 39, 0.42);
@@ -608,16 +607,6 @@ button {
   box-shadow: 0 0 0 3px rgba(167, 122, 50, 0.2);
 }
  
-.hint-card {
-  display: none;
-  border-left: 4px solid var(--gold);
-}
- 
-.hint-card.is-visible {
-  display: block;
-}
- 
-.hint-card p:last-child,
 .warning-card p:last-child {
   margin: 0.25rem 0 0;
   color: var(--muted-ink);

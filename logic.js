@@ -27,7 +27,7 @@
 function readQuestionsFromDom() {
   const questionEls = document.querySelectorAll("#quiz-data [data-question]");
 
-  return Array.from(questionEls).map((questionEl) => {
+  return Array.from(questionEls).map((questionEl, questionNumber) => {
     const optionEls = questionEl.querySelectorAll("[data-option]");
 
     const answers = Array.from(optionEls).map((optionEl) => ({
@@ -35,11 +35,33 @@ function readQuestionsFromDom() {
       correct: optionEl.dataset.correct === "true",
     }));
 
-    return {
-      prompt: questionEl.dataset.prompt,
-      hint: questionEl.dataset.hint,
-      answers,
-    };
+    const prompt = questionEl.dataset.prompt || "(missing question text)";
+    // Fall back to an empty string so the review never prints "undefined".
+    const hint = questionEl.dataset.hint || "";
+
+    // Help whoever edits the HTML catch content mistakes early. These warnings
+    // are for developers/content authors only and never reach the player.
+    const correctCount = answers.filter((a) => a.correct).length;
+    if (!questionEl.dataset.prompt) {
+      console.warn(`Quiz question ${questionNumber + 1} is missing data-prompt.`);
+    }
+    if (answers.length < 2) {
+      console.warn(
+        `Quiz question ${questionNumber + 1} has fewer than 2 answers.`
+      );
+    }
+    if (correctCount === 0) {
+      console.warn(
+        `Quiz question ${questionNumber + 1} has no answer marked data-correct="true"; it cannot be passed.`
+      );
+    }
+    if (correctCount > 1) {
+      console.warn(
+        `Quiz question ${questionNumber + 1} has ${correctCount} correct answers marked; expected exactly 1.`
+      );
+    }
+
+    return { prompt, hint, answers };
   });
 }
 
@@ -65,8 +87,20 @@ const backButton = document.querySelector("#nav-back");
 
 /* ---- Configuration (read from the markup, not hard-coded) ----------------- */
 const questions = readQuestionsFromDom();
-const maxAttempts = Number(quiz.dataset.maxAttempts);
-const duringMessage = quiz.dataset.duringMessage;
+// Fall back to 3 if data-max-attempts is missing or not a positive number,
+// so a content mistake can never produce "NaN" or an un-failable quiz.
+const DEFAULT_MAX_ATTEMPTS = 3;
+const parsedMaxAttempts = Number(quiz.dataset.maxAttempts);
+const maxAttempts =
+  Number.isInteger(parsedMaxAttempts) && parsedMaxAttempts > 0
+    ? parsedMaxAttempts
+    : DEFAULT_MAX_ATTEMPTS;
+if (maxAttempts !== parsedMaxAttempts) {
+  console.warn(
+    `data-max-attempts ("${quiz.dataset.maxAttempts}") is invalid; using ${DEFAULT_MAX_ATTEMPTS}.`
+  );
+}
+const duringMessage = quiz.dataset.duringMessage || "";
 const totalQuestions = questions.length;
 
 /* ---- State ---------------------------------------------------------------- */
@@ -79,14 +113,25 @@ let awaitingRetry = false; // when true, the submit button means "Try Again"
 let selections = new Array(totalQuestions).fill(null);
 
 /* ---- Setup ---------------------------------------------------------------- */
-buildProgressDots();
-updateAttemptStatus();
-renderQuestion();
+if (totalQuestions === 0) {
+  // No questions in the markup: show a clear message instead of crashing.
+  console.warn("No quiz questions found in #quiz-data.");
+  questionTitle.textContent = "No questions are available.";
+  answerList.innerHTML = "";
+  submitButton.disabled = true;
+  submitButton.classList.add("is-hidden");
+  if (backButton) backButton.disabled = true;
+  feedback.textContent = "This challenge has no questions yet.";
+} else {
+  buildProgressDots();
+  updateAttemptStatus();
+  renderQuestion();
 
-quizForm.addEventListener("submit", handleFormSubmit);
+  quizForm.addEventListener("submit", handleFormSubmit);
 
-if (backButton) {
-  backButton.addEventListener("click", goToPreviousQuestion);
+  if (backButton) {
+    backButton.addEventListener("click", goToPreviousQuestion);
+  }
 }
 
 /* ---- Rendering: question view -------------------------------------------- */
@@ -301,8 +346,9 @@ function buildReviewItem(question, index) {
 
   item.append(prompt, yours);
 
-  // Only show a hint when the chosen answer was wrong.
-  if (!wasCorrect) {
+  // Only show a hint when the chosen answer was wrong AND a hint exists,
+  // so a missing data-hint never renders as "Hint: undefined".
+  if (!wasCorrect && question.hint) {
     const hint = document.createElement("p");
     hint.className = "review-line review-hint";
     hint.textContent = `Hint: ${question.hint}`;
