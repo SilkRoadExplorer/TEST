@@ -1,73 +1,47 @@
 /* ============================================================
    The Shire Guide - Knowledge Challenge
-   A 5-question gate before a new journey section.
+   A multi-question gate before a new journey section.
 
    Flow (matches our system flowchart):
-   - The Fellowship answers all 5 questions, one at a time.
+   - The Fellowship answers every question, one at a time.
    - No feedback is shown during the round.
-   - After question 5, the whole round is graded at once:
-       full review with each chosen answer and the correct one.
-   - All 5 correct  -> section unlocked.
-   - Not all correct -> the round can be retried.
-   - A "try" is one COMPLETE run of the quiz; up to 3 tries.
-   - Previous answers stay selected on a retry, so the Fellowship
-     only has to correct what was wrong.
-   - After 3 unsuccessful tries -> marked unprepared (warning).
+   - After the last question, the whole round is graded at once:
+       a full review, with a cryptic hint on each wrong answer.
+   - All correct      -> section unlocked.
+   - Not all correct  -> the whole round can be retried.
+   - A "try" is one COMPLETE run; up to data-max-attempts tries.
+   - Previous answers stay selected on a retry.
+   - After the last try fails -> marked unprepared (warning).
+
+   CONTENT NOTE:
+   Questions live in the HTML (#quiz-data) as data attributes, not
+   in this file. To add or edit a question, copy a .quiz-question
+   block in interface.html - no JavaScript changes are needed.
+   This module only reads that markup and drives the interaction.
    ============================================================ */
 
-/* ---- Question data -------------------------------------------------------- */
-const questions = [
-  {
-    prompt: "What makes the Midgewater Marshes dangerous at night?",
-    hint: "What seems solid in daylight may not hold beneath a careless foot.",
-    answers: [
-      { label: "Unstable Ground", correct: true },
-      { label: "Marsh Wraiths", correct: false },
-      { label: "Poisonous Water", correct: false },
-      { label: "No Safe Paths", correct: false },
-    ],
-  },
-  {
-    prompt: "Why does the Fellowship travel away from the main road?",
-    hint: "The open road is watched by eyes that do not rest.",
-    answers: [
-      { label: "To avoid being seen by the Riders", correct: true },
-      { label: "The road is flooded", correct: false },
-      { label: "It is a shorter route", correct: false },
-      { label: "To find better food", correct: false },
-    ],
-  },
-  {
-    prompt: "What should the Fellowship do before resting for the night?",
-    hint: "A wise traveller knows the ground before laying down their head.",
-    answers: [
-      { label: "Check the ground and surroundings", correct: true },
-      { label: "Light a large fire", correct: false },
-      { label: "Keep marching through the night", correct: false },
-      { label: "Split the group up", correct: false },
-    ],
-  },
-  {
-    prompt: "Why is Weathertop a useful landmark for the Fellowship?",
-    hint: "From a height, much is revealed to those who watch.",
-    answers: [
-      { label: "It offers a wide view of the land", correct: true },
-      { label: "It has a hidden market", correct: false },
-      { label: "It is always safe", correct: false },
-      { label: "It has fresh supplies", correct: false },
-    ],
-  },
-  {
-    prompt: "What is the greatest risk of an open hilltop like Weathertop?",
-    hint: "To see far is also to be seen from afar.",
-    answers: [
-      { label: "Being visible from far away", correct: true },
-      { label: "Falling rocks", correct: false },
-      { label: "Too much shade", correct: false },
-      { label: "Crowded paths", correct: false },
-    ],
-  },
-];
+/* ---- Read question content from the HTML --------------------------------- */
+/* Each .quiz-question carries its prompt and hint as data attributes, and
+   holds its answers as child elements with data-correct. We turn that markup
+   into a plain data structure so the rest of the logic stays declarative. */
+function readQuestionsFromDom() {
+  const questionEls = document.querySelectorAll("#quiz-data [data-question]");
+
+  return Array.from(questionEls).map((questionEl) => {
+    const optionEls = questionEl.querySelectorAll("[data-option]");
+
+    const answers = Array.from(optionEls).map((optionEl) => ({
+      label: optionEl.textContent.trim(),
+      correct: optionEl.dataset.correct === "true",
+    }));
+
+    return {
+      prompt: questionEl.dataset.prompt,
+      hint: questionEl.dataset.hint,
+      answers,
+    };
+  });
+}
 
 /* ---- Element references --------------------------------------------------- */
 const quiz = document.querySelector("[data-quiz]");
@@ -89,17 +63,20 @@ const resultText = document.querySelector("#result-text");
 const submitButton = document.querySelector("#submit-answer");
 const backButton = document.querySelector("#nav-back");
 
-/* ---- State ---------------------------------------------------------------- */
-const maxAttempts = Number(quiz.dataset.maxAttempts); // 3 full tries
+/* ---- Configuration (read from the markup, not hard-coded) ----------------- */
+const questions = readQuestionsFromDom();
+const maxAttempts = Number(quiz.dataset.maxAttempts);
+const duringMessage = quiz.dataset.duringMessage;
 const totalQuestions = questions.length;
 
+/* ---- State ---------------------------------------------------------------- */
 let currentIndex = 0;
 let usedAttempts = 0;
 let quizIsFinished = false;
+let awaitingRetry = false; // when true, the submit button means "Try Again"
 // selections[i] = chosen answer index for question i, or null.
 // Kept across tries so previous answers stay visible.
 let selections = new Array(totalQuestions).fill(null);
-let awaitingRetry = false; // true when the review is shown and the button means "Try Again"
 
 /* ---- Setup ---------------------------------------------------------------- */
 buildProgressDots();
@@ -124,36 +101,7 @@ function renderQuestion() {
   answerList.innerHTML = "";
 
   question.answers.forEach((answer, answerIndex) => {
-    const optionId = `answer-${currentIndex}-${answerIndex}`;
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "answer-option";
-
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.id = optionId;
-    input.name = "quiz-answer";
-    input.value = String(answerIndex);
-    input.dataset.answer = "";
-
-    // Restore previous selection so it stays visible on retry.
-    if (selections[currentIndex] === answerIndex) {
-      input.checked = true;
-    }
-
-    const label = document.createElement("label");
-    label.setAttribute("for", optionId);
-
-    const marker = document.createElement("span");
-    marker.className = "answer-marker";
-    marker.setAttribute("aria-hidden", "true");
-
-    const text = document.createElement("span");
-    text.textContent = answer.label;
-
-    label.append(marker, text);
-    wrapper.append(input, label);
-    answerList.append(wrapper);
+    answerList.append(buildAnswerOption(answer, answerIndex));
   });
 
   updateProgressDisplay();
@@ -161,8 +109,43 @@ function renderQuestion() {
   updateSubmitLabel();
 
   // Neutral prompt during the round - no right/wrong yet.
-  feedback.textContent = "Answer all five questions. You will see the results at the end.";
+  feedback.textContent = duringMessage;
   feedback.classList.remove("is-success", "is-error");
+}
+
+/* Build a single answer option. The radio's value is the answer index, so the
+   chosen answer is referenced dynamically rather than by any fixed id. */
+function buildAnswerOption(answer, answerIndex) {
+  const optionId = `answer-${currentIndex}-${answerIndex}`;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "answer-option";
+
+  const input = document.createElement("input");
+  input.type = "radio";
+  input.id = optionId;
+  input.name = "quiz-answer";
+  input.value = String(answerIndex);
+  input.dataset.answer = "";
+
+  // Restore previous selection so it stays visible on retry.
+  if (selections[currentIndex] === answerIndex) {
+    input.checked = true;
+  }
+
+  const label = document.createElement("label");
+  label.setAttribute("for", optionId);
+
+  const marker = document.createElement("span");
+  marker.className = "answer-marker";
+  marker.setAttribute("aria-hidden", "true");
+
+  const text = document.createElement("span");
+  text.textContent = answer.label;
+
+  label.append(marker, text);
+  wrapper.append(input, label);
+  return wrapper;
 }
 
 function updateSubmitLabel() {
@@ -211,15 +194,13 @@ function handleFormSubmit(event) {
     return;
   }
 
-  const selected = document.querySelector("[data-answer]:checked");
+  const selected = answerList.querySelector("[data-answer]:checked");
   if (!selected) {
-    feedback.textContent = "Please choose an answer before continuing.";
-    feedback.classList.remove("is-success");
-    feedback.classList.add("is-error");
+    showFeedback("Please choose an answer before continuing.", "error");
     return;
   }
 
-  // Store the selection for this question.
+  // Store the selection for this question (by index, read from the input).
   selections[currentIndex] = Number(selected.value);
 
   const isLast = currentIndex === totalQuestions - 1;
@@ -232,10 +213,12 @@ function handleFormSubmit(event) {
 }
 
 function goToPreviousQuestion() {
+  // Ignore when finished or while the results screen is shown.
   if (currentIndex === 0 || quizIsFinished) return;
+  if (reviewPanel.classList.contains("is-visible")) return;
 
   // Remember the current choice before stepping back, if any.
-  const selected = document.querySelector("[data-answer]:checked");
+  const selected = answerList.querySelector("[data-answer]:checked");
   if (selected) {
     selections[currentIndex] = Number(selected.value);
   }
@@ -264,14 +247,11 @@ function gradeRound() {
 }
 
 function countCorrect() {
-  let count = 0;
-  questions.forEach((question, i) => {
+  return questions.reduce((count, question, i) => {
     const chosen = selections[i];
-    if (chosen !== null && question.answers[chosen].correct) {
-      count += 1;
-    }
-  });
-  return count;
+    const isCorrect = chosen !== null && question.answers[chosen].correct;
+    return count + (isCorrect ? 1 : 0);
+  }, 0);
 }
 
 function showReview(correctCount) {
@@ -280,50 +260,56 @@ function showReview(correctCount) {
   answerList.classList.add("is-hidden");
   reviewPanel.classList.add("is-visible");
 
+  // On the results screen there are no questions to step back into,
+  // so the back button is disabled until a retry returns to question 1.
+  if (backButton) backButton.disabled = true;
+
   // Mark all dots complete.
-  const dots = progressDots.querySelectorAll("span");
-  dots.forEach((dot) => {
+  progressDots.querySelectorAll("span").forEach((dot) => {
     dot.classList.remove("is-current");
     dot.classList.add("is-complete");
   });
   questionProgress.textContent = `Score: ${correctCount} of ${totalQuestions} correct`;
   progressCount.textContent = `${correctCount} / ${totalQuestions}`;
 
-  // Build the full review: each question and the chosen answer.
-  // For wrong answers, show a cryptic hint instead of the solution,
-  // so the Fellowship must still reason it out on the retry.
+  // Build the full review. For wrong answers we show a cryptic hint instead
+  // of the solution, so the Fellowship must still reason it out on the retry.
   reviewList.innerHTML = "";
-
   questions.forEach((question, i) => {
-    const chosen = selections[i];
-    const chosenAnswer = chosen !== null ? question.answers[chosen] : null;
-    const wasCorrect = chosenAnswer && chosenAnswer.correct;
-
-    const item = document.createElement("div");
-    item.className = `review-item ${wasCorrect ? "is-correct" : "is-wrong"}`;
-
-    const q = document.createElement("p");
-    q.className = "review-question";
-    q.textContent = `${i + 1}. ${question.prompt}`;
-
-    const yours = document.createElement("p");
-    yours.className = "review-line";
-    yours.textContent = chosenAnswer
-      ? `Your answer: ${chosenAnswer.label}`
-      : "Your answer: (none)";
-
-    item.append(q, yours);
-
-    // Only show a hint when the chosen answer was wrong.
-    if (!wasCorrect) {
-      const hint = document.createElement("p");
-      hint.className = "review-line review-hint";
-      hint.textContent = `Hint: ${question.hint}`;
-      item.append(hint);
-    }
-
-    reviewList.append(item);
+    reviewList.append(buildReviewItem(question, i));
   });
+}
+
+/* Build one review row for a question, using the stored selection. */
+function buildReviewItem(question, index) {
+  const chosen = selections[index];
+  const chosenAnswer = chosen !== null ? question.answers[chosen] : null;
+  const wasCorrect = Boolean(chosenAnswer && chosenAnswer.correct);
+
+  const item = document.createElement("div");
+  item.className = `review-item ${wasCorrect ? "is-correct" : "is-wrong"}`;
+
+  const prompt = document.createElement("p");
+  prompt.className = "review-question";
+  prompt.textContent = `${index + 1}. ${question.prompt}`;
+
+  const yours = document.createElement("p");
+  yours.className = "review-line";
+  yours.textContent = chosenAnswer
+    ? `Your answer: ${chosenAnswer.label}`
+    : "Your answer: (none)";
+
+  item.append(prompt, yours);
+
+  // Only show a hint when the chosen answer was wrong.
+  if (!wasCorrect) {
+    const hint = document.createElement("p");
+    hint.className = "review-line review-hint";
+    hint.textContent = `Hint: ${question.hint}`;
+    item.append(hint);
+  }
+
+  return item;
 }
 
 /* ---- End states ----------------------------------------------------------- */
@@ -388,13 +374,11 @@ function updateAttemptStatus() {
 function showResultAnimation(type) {
   resultAnimation.classList.remove("is-correct", "is-wrong");
   resultAnimation.classList.add("is-visible");
-  if (type === "correct") {
-    resultAnimation.classList.add("is-correct");
-    resultTitle.textContent = resultAnimation.dataset.correctTitle;
-    resultText.textContent = resultAnimation.dataset.correctText;
-  } else if (type === "wrong") {
-    resultAnimation.classList.add("is-wrong");
-    resultTitle.textContent = resultAnimation.dataset.wrongTitle;
-    resultText.textContent = resultAnimation.dataset.wrongText;
-  }
+
+  const titleKey = type === "correct" ? "correctTitle" : "wrongTitle";
+  const textKey = type === "correct" ? "correctText" : "wrongText";
+
+  resultAnimation.classList.add(type === "correct" ? "is-correct" : "is-wrong");
+  resultTitle.textContent = resultAnimation.dataset[titleKey];
+  resultText.textContent = resultAnimation.dataset[textKey];
 }

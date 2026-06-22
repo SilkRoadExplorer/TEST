@@ -804,3 +804,9 @@ button {
   font-style: italic;
   color: var(--brown) !important;
 }
+
+/* The question data store is never displayed; the script reads it on load. */
+.quiz-data,
+[hidden] {
+  display: none !important;
+}
