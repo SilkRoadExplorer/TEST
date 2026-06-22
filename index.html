@@ -135,6 +135,24 @@
               <!-- Answer options are rendered here by logic.js -->
             </fieldset>
 
+            <!--
+              Per-question feedback: shown after an answer is checked.
+              The two Gollum images live next to interface.html as
+              happy.gif and sad.gif. Change the data-* paths to swap them.
+            -->
+            <div
+              class="answer-feedback"
+              id="answer-feedback"
+              aria-live="polite"
+              data-happy-gif="happy.gif"
+              data-sad-gif="sad.gif"
+              data-correct-label="Correct!"
+              data-wrong-label="Wrong"
+            >
+              <img class="answer-feedback-gif" id="answer-feedback-gif" src="" alt="" />
+              <p class="answer-feedback-text" id="answer-feedback-text"></p>
+            </div>
+
             <!-- Review panel: shown after all questions are answered -->
             <section class="review-panel" id="review-panel" aria-live="polite">
               <p class="section-label">Results</p>

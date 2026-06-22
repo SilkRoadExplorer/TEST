@@ -799,3 +799,59 @@ button {
 [hidden] {
   display: none !important;
 }
+
+/* ============================================================
+   Per-question feedback (right/wrong + Gollum gif)
+   Shown after an answer is checked, hidden on the next question.
+   ============================================================ */
+
+.answer-feedback {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  text-align: center;
+  border: 1px solid rgba(117, 83, 39, 0.42);
+  border-left-width: 4px;
+  border-radius: 0.22rem;
+  background: rgba(255, 248, 229, 0.7);
+}
+
+.answer-feedback.is-visible {
+  display: flex;
+}
+
+.answer-feedback.is-correct {
+  border-left-color: var(--success);
+  background: rgba(217, 225, 204, 0.76);
+}
+
+.answer-feedback.is-wrong {
+  border-left-color: var(--rust);
+  background: rgba(255, 236, 216, 0.76);
+}
+
+.answer-feedback-gif {
+  width: 8rem;
+  height: 8rem;
+  object-fit: contain;
+  border-radius: 0.3rem;
+  background: rgba(255, 250, 235, 0.5);
+}
+
+.answer-feedback-text {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.answer-feedback.is-correct .answer-feedback-text {
+  color: var(--success);
+}
+
+.answer-feedback.is-wrong .answer-feedback-text {
+  color: var(--danger);
+}

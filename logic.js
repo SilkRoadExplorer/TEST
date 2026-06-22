@@ -84,6 +84,9 @@ const resultTitle = document.querySelector("#result-title");
 const resultText = document.querySelector("#result-text");
 const submitButton = document.querySelector("#submit-answer");
 const backButton = document.querySelector("#nav-back");
+const answerFeedback = document.querySelector("#answer-feedback");
+const answerFeedbackGif = document.querySelector("#answer-feedback-gif");
+const answerFeedbackText = document.querySelector("#answer-feedback-text");
 
 /* ---- Configuration (read from the markup, not hard-coded) ----------------- */
 const questions = readQuestionsFromDom();
@@ -108,6 +111,8 @@ let currentIndex = 0;
 let usedAttempts = 0;
 let quizIsFinished = false;
 let awaitingRetry = false; // when true, the submit button means "Try Again"
+let answerChecked = false; // when true, the current answer was checked and the
+//                            button means "Next Question" (the second click)
 // selections[i] = chosen answer index for question i, or null.
 // Kept across tries so previous answers stay visible.
 let selections = new Array(totalQuestions).fill(null);
@@ -139,6 +144,10 @@ function renderQuestion() {
   reviewPanel.classList.remove("is-visible");
   questionCard.classList.remove("is-hidden");
   answerList.classList.remove("is-hidden");
+
+  // A freshly rendered question is unchecked: clear any previous feedback.
+  answerChecked = false;
+  hideAnswerFeedback();
 
   const question = questions[currentIndex];
   questionTitle.textContent = question.prompt;
@@ -194,8 +203,9 @@ function buildAnswerOption(answer, answerIndex) {
 }
 
 function updateSubmitLabel() {
-  const isLast = currentIndex === totalQuestions - 1;
-  submitButton.textContent = isLast ? "Finish & See Results" : "Next Question";
+  // A freshly shown question always starts in "check" mode. The label only
+  // changes to "Next Question" / "See Results" after the answer is checked.
+  submitButton.textContent = "Submit Answer";
 }
 
 function updateNavButtons() {
@@ -233,12 +243,25 @@ function handleFormSubmit(event) {
   event.preventDefault();
   if (quizIsFinished) return;
 
-  // When the review is on screen, the button is a retry control.
+  // The submit button has three jobs depending on the current phase:
+  //   1. retry the whole quiz (review is showing)
+  //   2. advance to the next question (an answer was just checked)
+  //   3. check the chosen answer (the default, first click on a question)
   if (awaitingRetry) {
     startRetry();
     return;
   }
 
+  if (answerChecked) {
+    goToNextStep();
+    return;
+  }
+
+  checkCurrentAnswer();
+}
+
+/* Phase 3: check the selected answer, reveal right/wrong + Gollum, lock it. */
+function checkCurrentAnswer() {
   const selected = answerList.querySelector("[data-answer]:checked");
   if (!selected) {
     showFeedback("Please choose an answer before continuing.", "error");
@@ -246,7 +269,31 @@ function handleFormSubmit(event) {
   }
 
   // Store the selection for this question (by index, read from the input).
-  selections[currentIndex] = Number(selected.value);
+  const chosenIndex = Number(selected.value);
+  selections[currentIndex] = chosenIndex;
+
+  const isCorrect = questions[currentIndex].answers[chosenIndex].correct;
+
+  // Mark the chosen option visually and lock all options for this question.
+  const chosenWrapper = selected.closest(".answer-option");
+  chosenWrapper.classList.add(isCorrect ? "is-correct" : "is-wrong");
+  lockAnswerOptions();
+
+  showAnswerFeedback(isCorrect);
+
+  // Flip the button into "advance" mode for the second click.
+  answerChecked = true;
+  const isLast = currentIndex === totalQuestions - 1;
+  submitButton.textContent = isLast ? "See Results" : "Next Question";
+
+  // The back button is meaningless once the answer is locked.
+  if (backButton) backButton.disabled = true;
+}
+
+/* Phase 2: move on after feedback - next question, or grade the round. */
+function goToNextStep() {
+  answerChecked = false;
+  hideAnswerFeedback();
 
   const isLast = currentIndex === totalQuestions - 1;
   if (isLast) {
@@ -257,10 +304,42 @@ function handleFormSubmit(event) {
   }
 }
 
+/* Lock every answer option for the current question. */
+function lockAnswerOptions() {
+  answerList.querySelectorAll("[data-answer]").forEach((input) => {
+    input.disabled = true;
+  });
+}
+
+/* Show the per-question right/wrong indicator and the matching Gollum gif. */
+function showAnswerFeedback(isCorrect) {
+  const happyGif = answerFeedback.dataset.happyGif;
+  const sadGif = answerFeedback.dataset.sadGif;
+  const correctLabel = answerFeedback.dataset.correctLabel || "Correct!";
+  const wrongLabel = answerFeedback.dataset.wrongLabel || "Wrong";
+
+  answerFeedbackGif.src = isCorrect ? happyGif : sadGif;
+  answerFeedbackGif.alt = isCorrect
+    ? "Gollum looking happy"
+    : "Gollum looking sad";
+  answerFeedbackText.textContent = isCorrect ? correctLabel : wrongLabel;
+
+  answerFeedback.classList.remove("is-correct", "is-wrong");
+  answerFeedback.classList.add("is-visible", isCorrect ? "is-correct" : "is-wrong");
+}
+
+function hideAnswerFeedback() {
+  answerFeedback.classList.remove("is-visible", "is-correct", "is-wrong");
+  answerFeedbackGif.src = "";
+  answerFeedbackGif.alt = "";
+}
+
 function goToPreviousQuestion() {
-  // Ignore when finished or while the results screen is shown.
+  // Ignore when finished, while the results screen is shown, or once the
+  // current answer has been checked (it is locked and feedback is showing).
   if (currentIndex === 0 || quizIsFinished) return;
   if (reviewPanel.classList.contains("is-visible")) return;
+  if (answerChecked) return;
 
   // Remember the current choice before stepping back, if any.
   const selected = answerList.querySelector("[data-answer]:checked");
